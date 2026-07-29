@@ -1,4 +1,6 @@
-type RuntimeEnv = { DB?: D1Database; GOOGLE_CLIENT_ID?: string };
+import { neon } from "@neondatabase/serverless";
+
+type RuntimeEnv = { GOOGLE_CLIENT_ID?: string };
 
 export type SessionUser = {
   id: string;
@@ -8,14 +10,115 @@ export type SessionUser = {
 };
 
 export async function getRuntimeEnv() {
-  const { env } = await import("cloudflare:workers");
-  return env as unknown as RuntimeEnv;
+  return { GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID } satisfies RuntimeEnv;
+}
+
+type QueryResult<T = Record<string, unknown>> = { rows: T[]; rowCount?: number | null };
+type NeonSql = {
+  query: <T = Record<string, unknown>>(statement: string, values?: unknown[]) => Promise<QueryResult<T>>;
+};
+
+class PreparedStatement {
+  private values: unknown[] = [];
+
+  constructor(
+    private sql: NeonSql,
+    private statement: string,
+  ) {}
+
+  bind(...values: unknown[]) {
+    this.values = values;
+    return this;
+  }
+
+  private postgresStatement() {
+    let index = 0;
+    return this.statement.replace(/\?/g, () => `$${++index}`);
+  }
+
+  async execute<T = Record<string, unknown>>() {
+    return this.sql.query(this.postgresStatement(), this.values) as Promise<QueryResult<T>>;
+  }
+
+  async first<T>() {
+    const result = await this.execute<T>();
+    return result.rows[0] ?? null;
+  }
+
+  async all<T>() {
+    const result = await this.execute<T>();
+    return { results: result.rows };
+  }
+
+  async run() {
+    const result = await this.execute();
+    return { meta: { changes: result.rowCount ?? 0 } };
+  }
+}
+
+class Database {
+  constructor(private sql: NeonSql) {}
+
+  prepare(statement: string) {
+    return new PreparedStatement(this.sql, statement);
+  }
+
+  async batch(statements: PreparedStatement[]) {
+    return Promise.all(statements.map((statement) => statement.run()));
+  }
+}
+
+let databasePromise: Promise<Database> | null = null;
+
+async function connectDatabase() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL is unavailable");
+  const sql = neon(databaseUrl);
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      google_sub TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      avatar_url TEXT,
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at BIGINT NOT NULL,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'general',
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL,
+      deleted_at BIGINT
+    );
+    CREATE INDEX IF NOT EXISTS conversations_user_updated_idx ON conversations(user_id, updated_at);
+    CREATE INDEX IF NOT EXISTS conversations_user_deleted_idx ON conversations(user_id, deleted_at);
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      file_name TEXT,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS messages_conversation_created_idx ON messages(conversation_id, created_at);
+  `);
+  return new Database(sql as unknown as NeonSql);
 }
 
 export async function getDatabase() {
-  const database = (await getRuntimeEnv()).DB;
-  if (!database) throw new Error("D1 binding DB is unavailable");
-  return database;
+  databasePromise ??= connectDatabase();
+  return databasePromise;
 }
 
 export function readCookie(request: Request, name: string) {

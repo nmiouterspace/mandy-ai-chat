@@ -264,6 +264,8 @@ button { color: inherit; }
 .theme-modern .send { background: linear-gradient(135deg,#7765ff,#4c4eff); }
 .attached-file { grid-column: 1/-1; display: flex; justify-content: space-between; padding: 7px 10px; margin-bottom: -3px; border-radius: 10px; background: var(--soft); color: var(--accent); font-size: 12px; }
 .attached-file button { border: 0; background: transparent; }
+.composer .web-search { grid-column: 1/-1; justify-self: start; display: flex; gap: 6px; width: auto; min-height: 30px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; }
+.composer .web-search.active { border-color: var(--accent); background: var(--soft); color: var(--accent); }
 .composer-note { position: absolute; bottom: 13px; left: 50%; transform: translateX(-50%); margin: 0; width: 100%; text-align: center; color: var(--muted); font-size: 11px; }
 .mobile-menu,.scrim { display: none; }
 

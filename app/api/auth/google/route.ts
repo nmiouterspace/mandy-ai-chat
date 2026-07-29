@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       issuer: ["https://accounts.google.com", "accounts.google.com"],
     });
 
-    if (!payload.sub || !payload.email || payload.email_verified !== true) {
+    if (!payload.sub || typeof payload.email !== "string" || !payload.email || payload.email_verified !== true) {
       return json({ error: "Tài khoản Google chưa được xác minh." }, { status: 401 });
     }
 

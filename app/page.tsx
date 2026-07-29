@@ -65,6 +65,7 @@ export default function Home() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [webSearch, setWebSearch] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -150,17 +151,36 @@ export default function Home() {
     setDraft("");
     setFileName("");
     setTyping(true);
-    window.setTimeout(() => {
-      const reply =
-        mode === "english"
-          ? `Mandy English đã nhận được yêu cầu: “${text}”. Mình có thể sửa ngữ pháp, luyện nói hoặc tạo bài học theo đúng trình độ bạn chọn.`
-          : `Mình đã nhận được yêu cầu: “${text}”. Khi kết nối mô hình AI, câu trả lời đầy đủ sẽ xuất hiện tại đây.`;
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMessage],
+          mode,
+          style: model,
+          webSearch,
+        }),
+      });
+      const payload = (await response.json()) as { text?: string; error?: string };
+      const reply = response.ok && payload.text
+        ? payload.text
+        : `Mandy AI gặp lỗi: ${payload.error ?? "Không thể tạo câu trả lời."}`;
       const assistantMessage: Message = { id: crypto.randomUUID(), role: "assistant", text: reply };
       setMessages((items) => [...items, assistantMessage]);
       if (conversationId) void saveMessage(conversationId, assistantMessage);
       if (autoSpeak) speak(reply);
+    } catch {
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        text: "Mandy AI chưa thể kết nối. Bạn hãy thử lại sau một lát.",
+      };
+      setMessages((items) => [...items, assistantMessage]);
+      if (conversationId) void saveMessage(conversationId, assistantMessage);
+    } finally {
       setTyping(false);
-    }, 650);
+    }
   };
 
   const openConversation = async (conversation: Conversation) => {
@@ -391,6 +411,9 @@ export default function Home() {
 
           <form className="composer" onSubmit={send}>
             {fileName && <div className="attached-file"><span>▤ {fileName}</span><button type="button" onClick={() => setFileName("")}>×</button></div>}
+            <button type="button" className={`web-search ${webSearch ? "active" : ""}`} onClick={() => setWebSearch(!webSearch)}>
+              ◎ {webSearch ? "Đang tìm trên Web" : "Tìm trên Web"}
+            </button>
             <textarea className="message-input" value={draft} onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } }}
               rows={1} placeholder={mode === "english" ? "Hỏi Mandy English..." : "Nhắn tin cho Mandy AI..."} />
