@@ -34,6 +34,15 @@ export default function LoginPage() {
   useEffect(() => {
     let active = true;
 
+    if ("serviceWorker" in navigator) {
+      void navigator.serviceWorker.getRegistrations().then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister())),
+      );
+    }
+    if ("caches" in window) {
+      void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
+    }
+
     const initializeGoogle = () => {
       if (!active || !window.google || !googleButtonRef.current) return;
       googleButtonRef.current.innerHTML = "";
