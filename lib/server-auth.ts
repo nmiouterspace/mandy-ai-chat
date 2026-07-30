@@ -74,8 +74,8 @@ async function connectDatabase() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is unavailable");
   const sql = neon(databaseUrl);
-  await sql.query(`
-    CREATE TABLE IF NOT EXISTS users (
+  const schemaStatements = [
+    `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       google_sub TEXT NOT NULL UNIQUE,
       email TEXT NOT NULL UNIQUE,
@@ -83,15 +83,15 @@ async function connectDatabase() {
       avatar_url TEXT,
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS sessions (
+    )`,
+    `CREATE TABLE IF NOT EXISTS sessions (
       token_hash TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       expires_at BIGINT NOT NULL,
       created_at BIGINT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
-    CREATE TABLE IF NOT EXISTS conversations (
+    )`,
+    `CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id)`,
+    `CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
@@ -99,10 +99,10 @@ async function connectDatabase() {
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL,
       deleted_at BIGINT
-    );
-    CREATE INDEX IF NOT EXISTS conversations_user_updated_idx ON conversations(user_id, updated_at);
-    CREATE INDEX IF NOT EXISTS conversations_user_deleted_idx ON conversations(user_id, deleted_at);
-    CREATE TABLE IF NOT EXISTS messages (
+    )`,
+    `CREATE INDEX IF NOT EXISTS conversations_user_updated_idx ON conversations(user_id, updated_at)`,
+    `CREATE INDEX IF NOT EXISTS conversations_user_deleted_idx ON conversations(user_id, deleted_at)`,
+    `CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY,
       conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -110,9 +110,14 @@ async function connectDatabase() {
       content TEXT NOT NULL,
       file_name TEXT,
       created_at BIGINT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS messages_conversation_created_idx ON messages(conversation_id, created_at);
-  `);
+    )`,
+    `CREATE INDEX IF NOT EXISTS messages_conversation_created_idx ON messages(conversation_id, created_at)`,
+  ];
+
+  for (const statement of schemaStatements) {
+    await sql.query(statement);
+  }
+
   return new Database(sql as unknown as NeonSql);
 }
 
@@ -149,7 +154,7 @@ export async function getSessionUser(request: Request): Promise<SessionUser | nu
   const database = await getDatabase();
   const row = await database
     .prepare(
-      `SELECT u.id, u.email, u.name, u.avatar_url AS avatarUrl
+      `SELECT u.id, u.email, u.name, u.avatar_url AS \"avatarUrl\"
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND s.expires_at > ?
