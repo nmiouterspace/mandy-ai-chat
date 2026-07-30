@@ -71,7 +71,6 @@ export default function Home() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     const savedTheme = window.localStorage.getItem("mandy-theme");
     const savedAutoSpeak = window.localStorage.getItem("mandy-auto-speak");
     if (savedTheme === "calm" || savedTheme === "modern" || savedTheme === "friendly") {
