@@ -1,6 +1,7 @@
 import { getDatabase, json } from "../../../lib/server-auth";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const runtimeOidc = Boolean(request.headers.get("x-vercel-oidc-token"));
   const env = {
     databaseUrl: Boolean(process.env.DATABASE_URL),
     storageUrl: Boolean(process.env.STORAGE_URL),
@@ -8,8 +9,12 @@ export async function GET() {
     openAiKey: Boolean(process.env.OPENAI_API_KEY),
     aiGatewayKey: Boolean(process.env.AI_GATEWAY_API_KEY),
     vercelOidc: Boolean(process.env.VERCEL_OIDC_TOKEN),
+    runtimeOidc,
     aiConfigured: Boolean(
-      process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.OPENAI_API_KEY,
+      process.env.AI_GATEWAY_API_KEY ||
+        process.env.VERCEL_OIDC_TOKEN ||
+        process.env.OPENAI_API_KEY ||
+        runtimeOidc,
     ),
   };
 
