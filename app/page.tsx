@@ -68,7 +68,6 @@ export default function Home() {
   const [webSearch, setWebSearch] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
 
   useEffect(() => {
@@ -108,7 +107,6 @@ export default function Home() {
 
   useEffect(() => window.localStorage.setItem("mandy-theme", theme), [theme]);
   useEffect(() => window.localStorage.setItem("mandy-auto-speak", String(autoSpeak)), [autoSpeak]);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, typing]);
 
   const filtered = useMemo(
     () => histories.filter((item) => item[1].toLowerCase().includes(search.toLowerCase())),
@@ -169,6 +167,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
+        signal: AbortSignal.timeout(60000),
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           messages: [...messages, userMessage],
@@ -422,8 +421,7 @@ export default function Home() {
                   {message.role === "assistant" && <button onClick={() => speak(message.text)}>◖))</button>}
                 </article>
               ))}
-              {typing && <div className="typing"><span /><span /><span /></div>}
-              <div ref={endRef} />
+              {typing && <div className="typing-status">Mandy đang trả lời…</div>}
             </section>
           )}
 
@@ -438,7 +436,7 @@ export default function Home() {
             <input ref={fileRef} type="file" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={attach} />
             <button type="button" className="attach" onClick={() => fileRef.current?.click()}>⌕</button>
             <button type="button" className={`voice ${listening ? "listening" : ""}`} onClick={listen}>♩</button>
-            <button type="button" className="send" onClick={() => void send()}>➤</button>
+            <button type="button" className="send" disabled={typing} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void send(); }}>➤</button>
           </div>
           <p className="composer-note">Hỗ trợ ảnh, PDF, Word và Excel · Dữ liệu được đồng bộ theo tài khoản</p>
         </div>
