@@ -144,16 +144,20 @@ export default function Home() {
     const id = crypto.randomUUID();
     let conversationId = currentConversationId;
     if (!conversationId && user) {
-      const response = await fetch("/api/conversations", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title: text.slice(0, 70), mode }),
-      });
-      if (response.ok) {
-        const data = (await response.json()) as { conversation: Conversation };
-        conversationId = data.conversation.id;
-        setCurrentConversationId(conversationId);
-        setConversations((items) => [data.conversation, ...items]);
+      try {
+        const response = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title: text.slice(0, 70), mode }),
+        });
+        if (response.ok) {
+          const data = (await response.json()) as { conversation: Conversation };
+          conversationId = data.conversation.id;
+          setCurrentConversationId(conversationId);
+          setConversations((items) => [data.conversation, ...items]);
+        }
+      } catch {
+        // Chat can still continue even if saving the conversation is temporarily unavailable.
       }
     }
     const userMessage: Message = { id, role: "user", text, file: fileName || undefined };
