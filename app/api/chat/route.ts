@@ -25,9 +25,14 @@ export async function POST(request: Request) {
   const user = await getSessionUser(request);
   if (!user) return json({ error: "Unauthorized" }, { status: 401 });
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return json({ error: "Mandy AI chưa được cấu hình API key." }, { status: 503 });
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  const openAiKey = process.env.OPENAI_API_KEY;
+  const apiKey = gatewayToken || openAiKey;
+  if (!apiKey) {
+    return json({ error: "Mandy AI chưa nhận được thông tin xác thực AI." }, { status: 503 });
+  }
 
+  const useGateway = Boolean(gatewayToken);
   const body = (await request.json()) as {
     messages?: ChatMessage[];
     mode?: "general" | "english";
@@ -52,27 +57,31 @@ export async function POST(request: Request) {
         : "Balance clarity, depth, and brevity.";
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
+    const response = await fetch(
+      useGateway ? "https://ai-gateway.vercel.sh/v1/responses" : "https://api.openai.com/v1/responses",
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: useGateway ? "openai/gpt-5.6-sol" : "gpt-5.6-sol",
+          instructions: `${body.mode === "english" ? englishInstruction : generalInstruction} ${styleInstruction}`,
+          input: messages,
+          ...(body.webSearch ? { tools: [{ type: "web_search" }] } : {}),
+        }),
       },
-      body: JSON.stringify({
-        model: "gpt-5.6-sol",
-        instructions: `${body.mode === "english" ? englishInstruction : generalInstruction} ${styleInstruction}`,
-        input: messages,
-        ...(body.webSearch ? { tools: [{ type: "web_search" }] } : {}),
-      }),
-    });
+    );
     const payload = (await response.json()) as ResponsesPayload;
     if (!response.ok) {
-      return json({ error: payload.error?.message ?? "OpenAI API không phản hồi." }, { status: response.status });
+      return json({ error: payload.error?.message ?? "Dịch vụ AI không phản hồi." }, { status: response.status });
     }
     const text = readOutputText(payload);
     if (!text) return json({ error: "Mandy AI chưa tạo được câu trả lời." }, { status: 502 });
     return json({ text });
-  } catch {
+  } catch (error) {
+    console.error("Mandy AI request failed", error);
     return json({ error: "Không thể kết nối với Mandy AI lúc này." }, { status: 502 });
   }
 }
