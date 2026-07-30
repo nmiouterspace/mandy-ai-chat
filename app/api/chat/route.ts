@@ -25,17 +25,19 @@ export async function POST(request: Request) {
   const user = await getSessionUser(request);
   if (!user) return json({ error: "Unauthorized" }, { status: 401 });
 
+  const openAiKey = process.env.OPENAI_API_KEY;
   const gatewayToken =
     process.env.AI_GATEWAY_API_KEY ||
     request.headers.get("x-vercel-oidc-token") ||
     process.env.VERCEL_OIDC_TOKEN;
-  const openAiKey = process.env.OPENAI_API_KEY;
-  const apiKey = gatewayToken || openAiKey;
+  // Prefer the user's direct OpenAI key. Vercel OIDC is always present in
+  // production, but AI Gateway may require billing verification.
+  const apiKey = openAiKey || gatewayToken;
   if (!apiKey) {
     return json({ error: "Mandy AI chưa nhận được thông tin xác thực AI." }, { status: 503 });
   }
 
-  const useGateway = Boolean(gatewayToken);
+  const useGateway = !openAiKey && Boolean(gatewayToken);
   const body = (await request.json()) as {
     messages?: ChatMessage[];
     mode?: "general" | "english";
@@ -80,7 +82,16 @@ export async function POST(request: Request) {
     );
     const payload = (await response.json()) as ResponsesPayload;
     if (!response.ok) {
-      return json({ error: payload.error?.message ?? "Dịch vụ AI không phản hồi." }, { status: response.status });
+      const rawError = payload.error?.message ?? "Dịch vụ AI không phản hồi.";
+      const billingError = /credit card|billing|free credits/i.test(rawError);
+      return json(
+        {
+          error: billingError
+            ? "AI Gateway chưa được kích hoạt thanh toán. Hãy thêm OPENAI_API_KEY vào Vercel hoặc xác minh thanh toán Vercel."
+            : rawError,
+        },
+        { status: response.status },
+      );
     }
     const text = readOutputText(payload);
     if (!text) return json({ error: "Mandy AI chưa tạo được câu trả lời." }, { status: 502 });
