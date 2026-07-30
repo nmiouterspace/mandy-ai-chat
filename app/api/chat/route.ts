@@ -25,7 +25,10 @@ export async function POST(request: Request) {
   const user = await getSessionUser(request);
   if (!user) return json({ error: "Unauthorized" }, { status: 401 });
 
-  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  const gatewayToken =
+    process.env.AI_GATEWAY_API_KEY ||
+    request.headers.get("x-vercel-oidc-token") ||
+    process.env.VERCEL_OIDC_TOKEN;
   const openAiKey = process.env.OPENAI_API_KEY;
   const apiKey = gatewayToken || openAiKey;
   if (!apiKey) {
