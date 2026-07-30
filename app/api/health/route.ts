@@ -6,6 +6,11 @@ export async function GET() {
     storageUrl: Boolean(process.env.STORAGE_URL),
     googleClientId: Boolean(process.env.GOOGLE_CLIENT_ID),
     openAiKey: Boolean(process.env.OPENAI_API_KEY),
+    aiGatewayKey: Boolean(process.env.AI_GATEWAY_API_KEY),
+    vercelOidc: Boolean(process.env.VERCEL_OIDC_TOKEN),
+    aiConfigured: Boolean(
+      process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.OPENAI_API_KEY,
+    ),
   };
 
   try {
