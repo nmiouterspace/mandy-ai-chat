@@ -252,6 +252,8 @@ button { color: inherit; }
 .typing { display: flex; gap: 5px; margin: 18px 0 0 52px; }
 .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: bounce 1s infinite alternate; }
 .typing span:nth-child(2) { animation-delay: .18s; }.typing span:nth-child(3) { animation-delay: .36s; }
+.typing-status { margin: 18px 0 0 52px; color: var(--muted); font-size: 13px; }
+.send:disabled { opacity: .55; cursor: wait; box-shadow: none; }
 
 .composer { position: absolute; z-index: 8; bottom: 42px; left: 50%; transform: translateX(-50%); width: min(calc(100% - 96px),920px); min-height: 86px; display: grid; grid-template-columns: 52px minmax(0,1fr) 48px 56px; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); background: color-mix(in srgb,var(--panel) 93%,transparent); box-shadow: var(--shadow); backdrop-filter: blur(18px); }
 .composer textarea { grid-column: 2; width: 100%; max-height: 90px; resize: none; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 16px; line-height: 1.5; }
