@@ -73,7 +73,7 @@ let databasePromise: Promise<Database> | null = null;
 async function connectDatabase() {
   const databaseUrl = process.env.DATABASE_URL ?? process.env.STORAGE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is unavailable");
-  const sql = neon(databaseUrl);
+  const sql = neon(databaseUrl, { fullResults: true });
   const schemaStatements = [
     `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
