@@ -69,11 +69,13 @@ export async function POST(request: Request) {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: useGateway ? "openai/gpt-5.6-sol" : "gpt-5.6-sol",
+          model: useGateway ? "openai/gpt-5.6-terra" : "gpt-5.6-terra",
           instructions: `${body.mode === "english" ? englishInstruction : generalInstruction} ${styleInstruction}`,
           input: messages,
+          max_output_tokens: 800,
           ...(body.webSearch ? { tools: [{ type: "web_search" }] } : {}),
         }),
+        signal: AbortSignal.timeout(50000),
       },
     );
     const payload = (await response.json()) as ResponsesPayload;
