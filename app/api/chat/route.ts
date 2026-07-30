@@ -71,7 +71,7 @@ export async function POST(request: Request) {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: useGateway ? "openai/gpt-5.6-terra" : "gpt-5.6-terra",
+          model: useGateway ? "openai/gpt-5.6-terra" : "gpt-5.6-sol",
           instructions: `${body.mode === "english" ? englishInstruction : generalInstruction} ${styleInstruction}`,
           input: messages,
           max_output_tokens: 800,
