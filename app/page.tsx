@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Theme = "calm" | "modern" | "friendly";
 type Mode = "general" | "english";
@@ -69,8 +69,19 @@ export default function Home() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
 
   useEffect(() => {
+    // Remove any legacy PWA worker/cache that may still submit the old form bundle.
+    if ("serviceWorker" in navigator) {
+      void navigator.serviceWorker.getRegistrations().then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister())),
+      );
+    }
+    if ("caches" in window) {
+      void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
+    }
+
     const savedTheme = window.localStorage.getItem("mandy-theme");
     const savedAutoSpeak = window.localStorage.getItem("mandy-auto-speak");
     if (savedTheme === "calm" || savedTheme === "modern" || savedTheme === "friendly") {
@@ -126,10 +137,10 @@ export default function Home() {
     if (!response.ok) throw new Error("Không thể lưu tin nhắn.");
   };
 
-  const send = async (event?: FormEvent) => {
-    event?.preventDefault();
+  const send = async () => {
     const text = draft.trim() || (fileName ? `Phân tích tệp ${fileName}` : "");
-    if (!text) return;
+    if (!text || sendingRef.current) return;
+    sendingRef.current = true;
     const id = crypto.randomUUID();
     let conversationId = currentConversationId;
     if (!conversationId && user) {
@@ -181,6 +192,7 @@ export default function Home() {
       setMessages((items) => [...items, assistantMessage]);
       if (conversationId) void saveMessage(conversationId, assistantMessage).catch(() => undefined);
     } finally {
+      sendingRef.current = false;
       setTyping(false);
     }
   };
@@ -411,7 +423,7 @@ export default function Home() {
             </section>
           )}
 
-          <form className="composer" onSubmit={(event) => { event.preventDefault(); void send(); }}>
+          <div className="composer" role="group" aria-label="Soạn tin nhắn">
             {fileName && <div className="attached-file"><span>▤ {fileName}</span><button type="button" onClick={() => setFileName("")}>×</button></div>}
             <button type="button" className={`web-search ${webSearch ? "active" : ""}`} onClick={() => setWebSearch(!webSearch)}>
               ◎ {webSearch ? "Đang tìm trên Web" : "Tìm trên Web"}
@@ -423,7 +435,7 @@ export default function Home() {
             <button type="button" className="attach" onClick={() => fileRef.current?.click()}>⌕</button>
             <button type="button" className={`voice ${listening ? "listening" : ""}`} onClick={listen}>♩</button>
             <button type="button" className="send" onClick={() => void send()}>➤</button>
-          </form>
+          </div>
           <p className="composer-note">Hỗ trợ ảnh, PDF, Word và Excel · Dữ liệu được đồng bộ theo tài khoản</p>
         </div>
       </section>
