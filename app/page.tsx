@@ -118,11 +118,12 @@ export default function Home() {
   };
 
   const saveMessage = async (conversationId: string, message: Message) => {
-    await fetch(`/api/conversations/${conversationId}/messages`, {
+    const response = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(message),
     });
+    if (!response.ok) throw new Error("Không thể lưu tin nhắn.");
   };
 
   const send = async (event?: FormEvent) => {
@@ -146,7 +147,7 @@ export default function Home() {
     }
     const userMessage: Message = { id, role: "user", text, file: fileName || undefined };
     setMessages((items) => [...items, userMessage]);
-    if (conversationId) void saveMessage(conversationId, userMessage);
+    if (conversationId) void saveMessage(conversationId, userMessage).catch(() => undefined);
     setDraft("");
     setFileName("");
     setTyping(true);
@@ -161,13 +162,15 @@ export default function Home() {
           webSearch,
         }),
       });
-      const payload = (await response.json()) as { text?: string; error?: string };
+      const payload = (await response.json().catch(() => ({
+        error: "Máy chủ trả về phản hồi không hợp lệ.",
+      }))) as { text?: string; error?: string };
       const reply = response.ok && payload.text
         ? payload.text
         : `Mandy AI gặp lỗi: ${payload.error ?? "Không thể tạo câu trả lời."}`;
       const assistantMessage: Message = { id: crypto.randomUUID(), role: "assistant", text: reply };
       setMessages((items) => [...items, assistantMessage]);
-      if (conversationId) void saveMessage(conversationId, assistantMessage);
+      if (conversationId) void saveMessage(conversationId, assistantMessage).catch(() => undefined);
       if (autoSpeak) speak(reply);
     } catch {
       const assistantMessage: Message = {
@@ -176,7 +179,7 @@ export default function Home() {
         text: "Mandy AI chưa thể kết nối. Bạn hãy thử lại sau một lát.",
       };
       setMessages((items) => [...items, assistantMessage]);
-      if (conversationId) void saveMessage(conversationId, assistantMessage);
+      if (conversationId) void saveMessage(conversationId, assistantMessage).catch(() => undefined);
     } finally {
       setTyping(false);
     }
@@ -408,18 +411,18 @@ export default function Home() {
             </section>
           )}
 
-          <form className="composer" onSubmit={send}>
+          <form className="composer" onSubmit={(event) => { event.preventDefault(); void send(); }}>
             {fileName && <div className="attached-file"><span>▤ {fileName}</span><button type="button" onClick={() => setFileName("")}>×</button></div>}
             <button type="button" className={`web-search ${webSearch ? "active" : ""}`} onClick={() => setWebSearch(!webSearch)}>
               ◎ {webSearch ? "Đang tìm trên Web" : "Tìm trên Web"}
             </button>
             <textarea className="message-input" value={draft} onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } }}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }}
               rows={1} placeholder={mode === "english" ? "Hỏi Mandy English..." : "Nhắn tin cho Mandy AI..."} />
             <input ref={fileRef} type="file" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={attach} />
             <button type="button" className="attach" onClick={() => fileRef.current?.click()}>⌕</button>
             <button type="button" className={`voice ${listening ? "listening" : ""}`} onClick={listen}>♩</button>
-            <button type="submit" className="send">➤</button>
+            <button type="button" className="send" onClick={() => void send()}>➤</button>
           </form>
           <p className="composer-note">Hỗ trợ ảnh, PDF, Word và Excel · Dữ liệu được đồng bộ theo tài khoản</p>
         </div>
