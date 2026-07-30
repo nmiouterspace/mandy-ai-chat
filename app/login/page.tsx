@@ -34,14 +34,16 @@ export default function LoginPage() {
   useEffect(() => {
     let active = true;
 
-    if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker.getRegistrations().then((registrations) =>
-        Promise.all(registrations.map((registration) => registration.unregister())),
-      );
-    }
-    if ("caches" in window) {
-      void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
-    }
+    const pwaCleanup = Promise.all([
+      "serviceWorker" in navigator
+        ? navigator.serviceWorker.getRegistrations().then((registrations) =>
+            Promise.all(registrations.map((registration) => registration.unregister())),
+          )
+        : Promise.resolve([]),
+      "caches" in window
+        ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+        : Promise.resolve([]),
+    ]);
 
     const initializeGoogle = () => {
       if (!active || !window.google || !googleButtonRef.current) return;
@@ -91,7 +93,8 @@ export default function LoginPage() {
       document.head.appendChild(script);
     };
 
-    fetch("/api/auth/session")
+    void pwaCleanup
+      .then(() => fetch("/api/auth/session"))
       .then((response) => response.json())
       .then((data: { user: User | null }) => {
         if (data.user) {
